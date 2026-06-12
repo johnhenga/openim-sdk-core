@@ -92,6 +92,13 @@ Phase 0/1 foundation scaffold:
 - [x] Request routing — ReqIdentifier constants mirrored from
       `pkg/constant`; LongConnManager routes inbound envelopes like Go's
       `handleMessage` (push / kick / logout / pending-response)
-- [ ] MsgSyncer orchestrator + message_check.go gap validation — Phase 2
+- [x] MsgSyncer orchestrator — **verified**: port of `msg_sync.go` over
+      injected transport/store/listener interfaces, using the Wire-generated
+      protobuf types. Behavior pinned by fake-server tests: on-connect
+      catch-up (connectPullNums=1, 3×-retry with backoff, sync flags),
+      push handling (contiguous trigger / gap pull / seq-0 online-only),
+      reinstall (notification seq recording + markInstalled), 5s sync
+      debounce, and SplitPullMsgNum pull batching
+- [ ] message_check.go gap validation + conversation module — Phase 2/3
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4
