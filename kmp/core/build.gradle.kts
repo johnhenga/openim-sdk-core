@@ -11,6 +11,10 @@ kotlin {
         publishLibraryVariants("release")
     }
 
+    // JVM target: runs the conformance/golden/live-socket suites in CI
+    // without emulators, and hosts the future Go-parity harness.
+    jvm()
+
     listOf(
         iosArm64(),
         iosSimulatorArm64(),
@@ -36,6 +40,7 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
@@ -45,7 +50,22 @@ kotlin {
             implementation(libs.ktor.client.darwin)
             implementation(libs.sqldelight.native.driver)
         }
+        jvmMain.dependencies {
+            implementation(libs.ktor.client.cio)
+            implementation(libs.sqldelight.sqlite.driver)
+            implementation(libs.sqlite.jdbc)
+        }
+        jvmTest.dependencies {
+            implementation(libs.ktor.server.cio)
+            implementation(libs.ktor.server.websockets)
+            implementation(libs.slf4j.nop)
+        }
     }
+}
+
+tasks.withType<Test>().configureEach {
+    // Golden files (testdata/) are resolved relative to the module dir.
+    workingDir = projectDir
 }
 
 android {

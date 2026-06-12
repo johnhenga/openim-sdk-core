@@ -196,6 +196,13 @@ Phase 0/1 foundation scaffold:
       channel, Go's pushMsgAndMaxSeqCh pattern) and engine entry points ran
       on multiple threads (now confined to a single-parallelism dispatcher,
       Go's DoListener ownership)
+- [x] JVM target + CI — `jvm()` target with platform actuals hosts the
+      permanent conformance suites in `src/jvmTest`: SchemaCompatTest
+      (byte-identical sqlite_master vs the Go dump), GobGoldenTest (full
+      golden-vector file), LiveSocketLifecycleTest (the deadlock-catching
+      live-socket lifecycle). `.github/workflows/kmp-core.yml` regenerates
+      and diffs the Go goldens, runs `:core:jvmTest`, compiles the Android
+      target on ubuntu and the iOS arm64 klib on macOS
 - [ ] Remaining: blacks/user syncs, full-sync paths, MsgStruct content
       parsing, broader compat surface, CI against a real OpenIM server —
       Phase 3/4

@@ -1,0 +1,69 @@
+name: KMP core
+
+on:
+  push:
+    paths:
+      - "kmp/**"
+      - "tools/schemagen/**"
+      - "tools/gobgolden/**"
+      - "pkg/db/model_struct/**"
+      - ".github/workflows/kmp-core.yml"
+  pull_request:
+    paths:
+      - "kmp/**"
+      - "tools/schemagen/**"
+      - "tools/gobgolden/**"
+      - "pkg/db/model_struct/**"
+
+jobs:
+  # The golden files are the compatibility contract with the Go SDK; they
+  # must always match what the current Go code generates.
+  go-goldens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Regenerate schema golden
+        run: |
+          go run ./tools/schemagen docs/schema/go-sdk-schema.sql
+          cp docs/schema/go-sdk-schema.sql kmp/core/testdata/go-sdk-schema.sql
+      - name: Regenerate gob golden
+        run: go run ./tools/gobgolden kmp/core/testdata/gob-golden.txt
+      - name: Goldens must be committed
+        run: git diff --exit-code docs/schema kmp/core/testdata
+
+  # JVM tests cover the full conformance suite: schema byte-compat, gob
+  # golden vectors, all behavioral unit tests, and the live-socket
+  # lifecycle (the in-process server speaks the Go wire protocol).
+  kmp-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: JVM test suite
+        working-directory: kmp
+        run: gradle :core:jvmTest --console=plain
+      - name: Android compile
+        working-directory: kmp
+        run: gradle :core:compileReleaseKotlinAndroid --console=plain
+
+  # iOS klib compilation (linking needs macOS; full framework build can be
+  # promoted to a macOS runner when release packaging starts).
+  ios-compile:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: iOS arm64 compile
+        working-directory: kmp
+        run: gradle :core:compileKotlinIosArm64 --console=plain
