@@ -200,7 +200,7 @@ Phase 0/1 foundation scaffold:
       permanent conformance suites in `src/jvmTest`: SchemaCompatTest
       (byte-identical sqlite_master vs the Go dump), GobGoldenTest (full
       golden-vector file), LiveSocketLifecycleTest (the deadlock-catching
-      live-socket lifecycle). `.github/workflows/kmp-core.yml` regenerates
+      live-socket lifecycle). **CI green** (run #3, all 3 jobs): the workflow regenerates
       and diffs the Go goldens, runs `:core:jvmTest`, compiles the Android
       target on ubuntu and the iOS arm64 klib on macOS
 - [ ] Remaining: blacks/user syncs, full-sync paths, MsgStruct content
