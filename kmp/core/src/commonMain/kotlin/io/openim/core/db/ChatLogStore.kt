@@ -131,6 +131,55 @@ class ChatLogStore(private val driver: SqlDriver) {
         ) { seqs.forEachIndexed { i, seq -> bindLong(i, seq) } }
     }
 
+    /** Mirror of Go GetMessagesByClientMsgIDs (send_time DESC ordering). */
+    fun getByClientMsgIDs(conversationID: String, clientMsgIDs: List<String>): List<ChatLog> {
+        if (clientMsgIDs.isEmpty()) return emptyList()
+        initChatLog(conversationID)
+        val placeholders = clientMsgIDs.joinToString(",") { "?" }
+        return query(
+            "SELECT * FROM `${tableName(conversationID)}` WHERE client_msg_id IN ($placeholders) ORDER BY send_time DESC",
+            parameters = clientMsgIDs.size,
+        ) { clientMsgIDs.forEachIndexed { i, id -> bindString(i, id) } }
+    }
+
+    /** Rewrites a row by client_msg_id (Go: UpdateMessage non-key columns). */
+    fun update(conversationID: String, msg: ChatLog) {
+        driver.execute(
+            identifier = null,
+            sql = """
+                UPDATE `${tableName(conversationID)}` SET
+                    server_msg_id = ?, send_id = ?, recv_id = ?,
+                    sender_platform_id = ?, sender_nick_name = ?,
+                    sender_face_url = ?, session_type = ?, msg_from = ?,
+                    content_type = ?, content = ?, is_read = ?, status = ?,
+                    seq = ?, send_time = ?, create_time = ?, attached_info = ?,
+                    ex = ?, local_ex = ?
+                WHERE client_msg_id = ?
+            """.trimIndent(),
+            parameters = 19,
+        ) {
+            bindString(0, msg.serverMsgID)
+            bindString(1, msg.sendID)
+            bindString(2, msg.recvID)
+            bindLong(3, msg.senderPlatformID)
+            bindString(4, msg.senderNickname)
+            bindString(5, msg.senderFaceURL)
+            bindLong(6, msg.sessionType)
+            bindLong(7, msg.msgFrom)
+            bindLong(8, msg.contentType)
+            bindString(9, msg.content)
+            bindLong(10, if (msg.isRead) 1 else 0)
+            bindLong(11, msg.status)
+            bindLong(12, msg.seq)
+            bindLong(13, msg.sendTime)
+            bindLong(14, msg.createTime)
+            bindString(15, msg.attachedInfo)
+            bindString(16, msg.ex)
+            bindString(17, msg.localEx)
+            bindString(18, msg.clientMsgID)
+        }
+    }
+
     /** Mirror of Go GetConversationNormalMsgSeq: IFNULL(max(seq), 0). */
     fun maxSeq(conversationID: String): Long {
         val table = tableName(conversationID)

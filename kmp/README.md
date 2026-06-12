@@ -106,7 +106,13 @@ Phase 0/1 foundation scaffold:
       pure functions of `message_check.go` (have-seq scan ignoring seq-0,
       lost-seq computation capped at PullMsgNumForReadDiffusion=50 with
       direction-aware trimming, sendTime+seq ordered merge); pinned by tests
-- [ ] Conversation module (message storage pipeline, view-block validation,
-      exception-message placeholders) — Phase 3
+- [x] Message storage pipeline — **verified**: `MessageIngestor` ports
+      `pullMessageIntoTable`/`handleExceptionMessages` (own-send seq
+      backfill, [SEQ_GAP_+n]/[DELETED]/[SEQ_DUP]/[CLIENT_DUP] placeholders,
+      group recvID rewrite, status normalization), with
+      `ChatLogIngestStore` over the dynamic chat-log tables. Pinned by 8
+      unit tests plus an end-to-end run against real SQLite
+- [ ] Conversation module remainder (conversation upsert/unread/latest-msg
+      triggers, view-block validation) + domain modules — Phase 3
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4
