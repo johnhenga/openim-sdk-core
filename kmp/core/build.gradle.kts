@@ -84,7 +84,9 @@ wire {
         srcDir(rootProject.file("protocol"))
     }
     kotlin {
-        // Generate into commonMain for all targets.
+        // Messages only — the SDK talks to existing HTTP/WS endpoints, so
+        // no gRPC service stubs (which would need wire-grpc-client).
+        rpcRole = "none"
     }
 }
 
