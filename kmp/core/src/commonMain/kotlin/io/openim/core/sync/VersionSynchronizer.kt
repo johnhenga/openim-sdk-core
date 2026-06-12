@@ -2,71 +2,109 @@ package io.openim.core.sync
 
 /**
  * Local version-sync state, one row per (tableName, entityID) in
- * `local_sync_version`. Mirrors Go model_struct.LocalVersionSync.
+ * `local_sync_version`. Mirrors Go model_struct.LocalVersionSync; [idList]
+ * is persisted in the `id_list` TEXT column (JSON-encoded, as GORM does).
  */
 data class VersionSyncState(
     val tableName: String,
     val entityID: String,
-    val versionID: String? = null,
+    val versionID: String = "",
     val version: Long = 0,
     val createTime: Long = 0,
-    val idList: String? = null,
+    val idList: List<String> = emptyList(),
 )
 
-/** A page of incremental changes returned by the server. */
-data class VersionDelta<T>(
-    val versionID: String,
-    val version: Long,
-    /** Server signals that the client is too far behind and must full-sync. */
-    val full: Boolean,
-    val inserts: List<T> = emptyList(),
-    val updates: List<T> = emptyList(),
-    val deleteKeys: List<String> = emptyList(),
-)
+/** Persistence for [VersionSyncState] (Go: db VersionSyncModel). */
+interface VersionSyncStore {
+    suspend fun get(tableName: String, entityID: String): VersionSyncState?
+    suspend fun set(state: VersionSyncState)
+}
 
 /**
- * Incremental synchronizer for versioned collections (conversations, friends,
- * joined groups, group members). Port of Go
- * pkg/syncer/version_synchronizer.go:
+ * Incremental synchronizer for versioned collections (friends, joined
+ * groups, group members, conversations): a faithful port of
+ * pkg/syncer/version_synchronizer.go IncrementalSync.
  *
- * 1. Load local (versionID, version) for the entity.
- * 2. Ask the server for changes since that version.
- * 3. If the server's versionID differs or it flags `full`, fall back to a
- *    full sync via [Syncer.sync] against the complete server list.
- * 4. Otherwise apply inserts/updates/deletes and persist the new version.
+ * The server is asked for changes since the locally stored
+ * (versionID, version) and replies with delete keys, updates, inserts, and
+ * a `full` flag when the client is too far behind to patch incrementally:
+ *
+ * - nothing changed and not full: return without touching the version row
+ * - full: run [fullSyncer], rebuild the id list from [fullIDs]
+ * - otherwise: maintain the id list (drop deleted keys, append new ones),
+ *   build the expected server state as local ⊕ changes ⊖ deletions, and
+ *   reconcile via the generic [Syncer] (which performs the DB writes and
+ *   emits insert/update/delete notices)
+ *
+ * The new (versionID, version, idList) is persisted at the end.
  */
-class VersionSynchronizer<T : Any>(
+class VersionSynchronizer<V : Any>(
     private val tableName: String,
     private val entityID: String,
-    private val getLocalState: suspend (tableName: String, entityID: String) -> VersionSyncState?,
-    private val setLocalState: suspend (VersionSyncState) -> Unit,
-    private val fetchDelta: suspend (versionID: String?, version: Long) -> VersionDelta<T>,
-    private val fetchAll: suspend () -> List<T>,
-    private val localList: suspend () -> List<T>,
-    private val applyInsert: suspend (T) -> Unit,
-    private val applyUpdate: suspend (T) -> Unit,
-    private val applyDeleteByKey: suspend (String) -> Unit,
-    private val fullSyncer: Syncer<T, *>,
+    private val versionStore: VersionSyncStore,
+    private val key: (V) -> String,
+    private val local: suspend () -> List<V>,
+    private val server: suspend (VersionSyncState?) -> Response<V>,
+    private val syncer: Syncer<V, String>,
+    private val fullSyncer: suspend () -> Unit,
+    private val fullIDs: suspend () -> List<String>,
+    private val notice: suspend (state: SyncState, server: V?, local: V?) -> Unit = { _, _, _ -> },
 ) {
 
-    suspend fun sync() {
-        val local = getLocalState(tableName, entityID)
-        val delta = fetchDelta(local?.versionID, local?.version ?: 0)
+    /** Server reply to an incremental request (Go: the resp accessors). */
+    data class Response<V>(
+        val versionID: String,
+        val version: Long,
+        val full: Boolean,
+        val deleteKeys: List<String> = emptyList(),
+        val updates: List<V> = emptyList(),
+        val inserts: List<V> = emptyList(),
+        /** Go: IDOrderChanged — e.g. friend reorder or role-level change. */
+        val idOrderChanged: Boolean = false,
+    )
 
-        if (delta.full || local?.versionID != delta.versionID && local != null) {
-            fullSyncer.sync(serverData = fetchAll(), localData = localList())
-        } else {
-            delta.inserts.forEach { applyInsert(it) }
-            delta.updates.forEach { applyUpdate(it) }
-            delta.deleteKeys.forEach { applyDeleteByKey(it) }
+    suspend fun incrementalSync() {
+        val stored = versionStore.get(tableName, entityID)
+        val resp = server(stored)
+
+        val changes = resp.updates + resp.inserts
+        if (resp.deleteKeys.isEmpty() && changes.isEmpty() && !resp.full) {
+            return // Go parity: version row left untouched
         }
 
-        setLocalState(
+        var idList = stored?.idList ?: emptyList()
+
+        if (resp.full) {
+            fullSyncer()
+            idList = fullIDs()
+        } else {
+            if (resp.deleteKeys.isNotEmpty()) {
+                idList = idList - resp.deleteKeys.toSet()
+            }
+            val newKeys = changes.map(key).filter { it !in idList }
+            if (newKeys.isNotEmpty()) idList = idList + newKeys
+
+            val localData = local()
+            val expected = LinkedHashMap<String, V>(localData.size + changes.size)
+            for (v in localData) expected[key(v)] = v
+            for (change in changes) expected[key(change)] = change
+            for (id in resp.deleteKeys) expected.remove(id)
+
+            syncer.sync(expected.values.toList(), localData, notice = notice)
+
+            if (resp.idOrderChanged) {
+                idList = fullIDs()
+            }
+        }
+
+        versionStore.set(
             VersionSyncState(
                 tableName = tableName,
                 entityID = entityID,
-                versionID = delta.versionID,
-                version = delta.version,
+                versionID = resp.versionID,
+                version = resp.version,
+                createTime = stored?.createTime ?: 0,
+                idList = idList,
             )
         )
     }
