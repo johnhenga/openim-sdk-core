@@ -116,7 +116,15 @@ Phase 0/1 foundation scaffold:
       group recvID rewrite, status normalization), with
       `ChatLogIngestStore` over the dynamic chat-log tables. Pinned by 8
       unit tests plus an end-to-end run against real SQLite
-- [ ] Conversation module remainder (conversation upsert/unread/latest-msg
-      triggers, view-block validation) + domain modules — Phase 3
+- [x] HTTP API client + friend incremental sync — **verified**: `ApiClient`
+      mirrors `pkg/network/http_client.go` (operationID/token headers,
+      `{errCode,errMsg,errDlt,data}` envelope → ApiException); `FriendSync`
+      instantiates VersionSynchronizer over
+      `/friend/get_incremental_friends` exactly like
+      `internal/relation/incremental_sync.go` (incl. sortVersion → full-ID
+      refresh). Pinned by mock-server tests
+- [ ] Remaining domain modules (blacks, groups, group members,
+      conversations — same FriendSync template), full-sync paths,
+      conversation triggers, send pipeline — Phase 3
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4
