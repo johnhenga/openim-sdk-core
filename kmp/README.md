@@ -89,7 +89,9 @@ Phase 0/1 foundation scaffold:
       from the vendored set, all compile, and generated code decodes
       Go-protobuf-marshaled `sdkws` bytes and re-encodes them
       byte-identically (`tools/protocheck`)
-- [ ] Request routing (ReqIdentifier dispatch over the gob envelope)
+- [x] Request routing — ReqIdentifier constants mirrored from
+      `pkg/constant`; LongConnManager routes inbound envelopes like Go's
+      `handleMessage` (push / kick / logout / pending-response)
 - [ ] MsgSyncer orchestrator + message_check.go gap validation — Phase 2
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4

@@ -151,11 +151,7 @@ class LongConnManager(
         launch { // readPump
             for (frame in session.incoming) {
                 when (frame) {
-                    is Frame.Binary -> {
-                        val resp = codec.decode(frame.readBytes())
-                        val waiter = pending.remove(resp.msgIncr)
-                        if (waiter != null) waiter.complete(resp) else onPushMessage(resp)
-                    }
+                    is Frame.Binary -> handleMessage(codec.decode(frame.readBytes()), session)
                     is Frame.Pong -> lastPong.value = nowMillis()
                     else -> Unit
                 }
@@ -181,6 +177,28 @@ class LongConnManager(
                     throw ConnectionClosedException("pong timeout")
                 }
             }
+        }
+    }
+
+    /**
+     * Routes an inbound envelope by reqIdentifier, mirroring Go
+     * long_conn_mgr.go handleMessage: pushes and kicks are server-initiated
+     * (no pending request); everything else completes the matching waiter.
+     */
+    private suspend fun handleMessage(resp: GeneralWsResp, session: WebSocketSession) {
+        when (resp.reqIdentifier) {
+            ReqIdentifier.PUSH_MSG -> onPushMessage(resp)
+            ReqIdentifier.KICK_ONLINE_MSG -> {
+                _state.value = ConnectionState.KickedOffline("server kicked this client")
+                session.close()
+                throw ConnectionClosedException("kicked online")
+            }
+            ReqIdentifier.LOGOUT_MSG -> {
+                pending.remove(resp.msgIncr)?.complete(resp)
+                session.close()
+                throw ConnectionClosedException("logged out")
+            }
+            else -> pending.remove(resp.msgIncr)?.complete(resp) ?: onPushMessage(resp)
         }
     }
 
