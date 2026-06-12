@@ -7,7 +7,9 @@ import kotlin.random.Random
 
 /** Message status constants (pkg/constant). */
 object MsgStatus {
+    const val SENDING = 1L
     const val SEND_SUCCESS = 2L
+    const val SEND_FAILED = 3L
     const val HAS_DELETED = 4L
 }
 

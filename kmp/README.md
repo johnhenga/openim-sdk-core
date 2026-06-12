@@ -153,7 +153,14 @@ Phase 0/1 foundation scaffold:
       messages without unread, placeholder settings carry-over without
       duplicate rows. (MsgStruct content parsing pending; preview encoder
       is injectable)
+- [x] Send pipeline — **verified end-to-end on real SQLite**:
+      `MessageSender` ports initBasicInfo / sendMessageToServer /
+      updateMsgStatusAndTriggerConversation: Sending row +
+      local_sending_messages record in flight, ack applies
+      serverMsgID/sendTime/SendSuccess, failures mark SendFailed, network
+      timeouts double-check the DB for a raced ack, server-modified
+      messages replace the draft, online-only sends persist nothing
 - [ ] Remaining: blacks/user syncs, full-sync paths, MsgStruct content
-      parsing, send pipeline, public API assembly — Phase 3
+      parsing, public API assembly — Phase 3
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4

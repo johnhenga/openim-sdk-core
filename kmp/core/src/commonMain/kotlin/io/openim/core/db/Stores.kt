@@ -260,6 +260,33 @@ class SqlGroupStore(private val driver: SqlDriver) : GroupStore {
     }
 }
 
+/** `local_sending_messages` — pending sends (Go: sending_messages_model.go). */
+class SqlSendingMessagesStore(private val driver: SqlDriver) :
+    io.openim.core.conversation.SendingMessagesStore {
+
+    override suspend fun insert(conversationID: String, clientMsgID: String) {
+        driver.execute(
+            null,
+            "INSERT OR REPLACE INTO `local_sending_messages` (conversation_id, client_msg_id, ex) VALUES (?,?,'')",
+            2,
+        ) { bindString(0, conversationID); bindString(1, clientMsgID) }
+    }
+
+    override suspend fun delete(conversationID: String, clientMsgID: String) {
+        driver.execute(
+            null,
+            "DELETE FROM `local_sending_messages` WHERE conversation_id = ? AND client_msg_id = ?",
+            2,
+        ) { bindString(0, conversationID); bindString(1, clientMsgID) }
+    }
+
+    /** Go: GetAllSendingMessages — used at login to fail orphaned sends. */
+    fun getAll(): List<Pair<String, String>> =
+        driver.rows("SELECT conversation_id, client_msg_id FROM `local_sending_messages`") { c ->
+            c.getString(0)!! to c.getString(1)!!
+        }
+}
+
 /**
  * `local_conversations`. Sync writes only the server-owned columns; local
  * trigger state (unread_count, draft_text, latest_msg, …) keeps the schema
