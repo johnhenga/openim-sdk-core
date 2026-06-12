@@ -8,9 +8,11 @@ import io.openim.core.sync.VersionSynchronizer
 import kotlinx.serialization.Serializable
 
 /**
- * Row of `local_conversations` (mirror of model_struct.LocalConversation;
- * server-synced fields only — unread counts, drafts, and latest-msg
- * snapshots are local-side state maintained by the conversation triggers).
+ * Row of `local_conversations` (mirror of model_struct.LocalConversation).
+ * The fields below the divider are local-side state maintained by the
+ * conversation triggers (ConversationTrigger) — server sync neither sends
+ * nor overwrites them (SqlConversationStore.update lists server columns
+ * only).
  */
 data class LocalConversation(
     val conversationID: String,
@@ -26,6 +28,13 @@ data class LocalConversation(
     val ex: String = "",
     val msgDestructTime: Long = 0,
     val isMsgDestruct: Boolean = false,
+    // ---- local trigger state ----
+    val showName: String = "",
+    val faceURL: String = "",
+    val latestMsg: String = "",
+    val latestMsgSendTime: Long = 0,
+    val unreadCount: Int = 0,
+    val isNotInGroup: Boolean = false,
 )
 
 /** JSON DTO for conversation.proto Conversation (proto field names). */

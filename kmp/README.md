@@ -138,8 +138,13 @@ Phase 0/1 foundation scaffold:
       SqlConversationStore (sync updates touch only server-owned columns;
       unread/draft state preserved). Friend+group+conversation syncs run
       mock HTTP → stores → real SQLite with conversions and cursors checked
-- [ ] Remaining domain modules (blacks, user — same template), full-sync
-      paths, conversation triggers (unread/latest-msg), send pipeline —
-      Phase 3
+- [x] Conversation triggers — **verified**: `ConversationTrigger` ports the
+      doMsgNew decision core (snapshot accumulation, MaxSeqRecorder-gated
+      unread deltas, changed/new diff with enrichment hook, placeholder
+      merge carrying settings, session-type conversation seeds);
+      `LocalConversation` extended with the local trigger state. Pinned by
+      tests
+- [ ] Remaining: blacks/user syncs, full-sync paths, doMsgNew orchestrator
+      assembly, send pipeline, public API assembly — Phase 3
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4
