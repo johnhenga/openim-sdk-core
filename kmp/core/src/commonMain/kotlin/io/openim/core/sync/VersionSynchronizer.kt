@@ -52,6 +52,9 @@ class VersionSynchronizer<V : Any>(
     /** Go: ExtraDataProcessor — handles [Response.extraData] after the sync
      * (e.g. the group info piggybacked on a group-member response). */
     private val extraDataProcessor: (suspend (Any) -> Unit)? = null,
+    /** Args for the reconciliation pass (Go passes skipDeletion=true for
+     * conversations: rows are never deleted by sync). */
+    private val syncArgs: Syncer.Args = Syncer.Args(),
 ) {
 
     /** Server reply to an incremental request (Go: the resp accessors). */
@@ -95,7 +98,7 @@ class VersionSynchronizer<V : Any>(
             for (change in changes) expected[key(change)] = change
             for (id in resp.deleteKeys) expected.remove(id)
 
-            syncer.sync(expected.values.toList(), localData, notice = notice)
+            syncer.sync(expected.values.toList(), localData, args = syncArgs, notice = notice)
 
             if (resp.extraData != null) {
                 extraDataProcessor?.invoke(resp.extraData)

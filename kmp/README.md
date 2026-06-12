@@ -129,8 +129,12 @@ Phase 0/1 foundation scaffold:
       500-cursor MaxSyncPullNumber split, piggybacked group info applied
       via the synchronizer's extraData hook, per-group version cursors
       under `local_group_entities_version`). Pinned by mock-server tests
-- [ ] Remaining domain modules (blacks, conversations, user — same
-      template), full-sync paths, conversation triggers, send pipeline —
+- [x] Conversation sync — **verified**: `ConversationSync` ports
+      `IncrSyncConversations` incl. the skipDeletion semantics (sync never
+      deletes conversation rows; server delete keys only trim the version
+      id_list). Pinned by mock-server tests
+- [ ] Remaining domain modules (blacks, user — same template), full-sync
+      paths, conversation triggers (unread/latest-msg), send pipeline —
       Phase 3
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4
