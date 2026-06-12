@@ -160,7 +160,15 @@ Phase 0/1 foundation scaffold:
       serverMsgID/sendTime/SendSuccess, failures mark SendFailed, network
       timeouts double-check the DB for a raced ack, server-modified
       messages replace the draft, online-only sends persist nothing
+- [x] Engine assembly — **verified**: `OpenIMEngine` composes all verified
+      components over one database (MsgSyncer → ConversationProcessor →
+      stores → listener; MessageSender; domain syncs), with
+      WsSendTransport and SqlMsgSyncStore filling the last adapter gaps.
+      Headless lifecycle integration test on real SQLite: fresh-install
+      login (reinstall path with AppDataSync flags), connect catch-up
+      pulling history, server-data sync, gap-push fill with unread, text
+      send with ack, debounced re-connect with normal sync flags
 - [ ] Remaining: blacks/user syncs, full-sync paths, MsgStruct content
-      parsing, public API assembly — Phase 3
+      parsing, typed/compat API facades over OpenIMEngine, CI — Phase 3/4
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4

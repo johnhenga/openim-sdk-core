@@ -260,6 +260,55 @@ class SqlGroupStore(private val driver: SqlDriver) : GroupStore {
     }
 }
 
+/**
+ * MsgSyncStore over the real database (Go: the db_interface calls in
+ * msg_sync.go LoadSeq / compareSeqsAndBatchSync).
+ */
+class SqlMsgSyncStore(
+    private val driver: SqlDriver,
+    private val chatLogs: ChatLogStore,
+) : io.openim.core.sync.MsgSyncStore {
+
+    override suspend fun allConversationIDs(): List<String> =
+        driver.rows("SELECT conversation_id FROM `local_conversations`") { it.getString(0)!! }
+
+    override suspend fun maxSyncedSeq(conversationID: String): Long =
+        chatLogs.maxSeq(conversationID)
+
+    override suspend fun notificationSeqs(): Map<String, Long> =
+        driver.rows("SELECT conversation_id, seq FROM `local_notification_seqs`") {
+            it.getString(0)!! to (it.getLong(1) ?: 0)
+        }.toMap()
+
+    override suspend fun insertNotificationSeqs(seqs: Map<String, Long>) {
+        for ((conversationID, seq) in seqs) {
+            driver.execute(
+                null,
+                "INSERT OR REPLACE INTO `local_notification_seqs` (conversation_id, seq) VALUES (?,?)",
+                2,
+            ) { bindString(0, conversationID); bindLong(1, seq) }
+        }
+    }
+
+    override suspend fun isInstalled(): Boolean =
+        driver.rows("SELECT installed FROM `local_app_sdk_version` LIMIT 1") {
+            (it.getLong(0) ?: 0) != 0L
+        }.firstOrNull() ?: false
+
+    override suspend fun markInstalled() {
+        // Go: SetAppSDKVersion(Installed: true); the version string is the
+        // SDK release and is set by the engine at init.
+        val updated = driver.execute(null, "UPDATE `local_app_sdk_version` SET installed = 1", 0).value
+        if (updated == 0L) {
+            driver.execute(
+                null,
+                "INSERT INTO `local_app_sdk_version` (version, installed) VALUES ('', 1)",
+                0,
+            )
+        }
+    }
+}
+
 /** `local_sending_messages` — pending sends (Go: sending_messages_model.go). */
 class SqlSendingMessagesStore(private val driver: SqlDriver) :
     io.openim.core.conversation.SendingMessagesStore {
