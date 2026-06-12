@@ -75,8 +75,11 @@ Phase 0/1 foundation scaffold:
       common sources compile-verified with kotlinc 2.1.21
 - [x] Typed API + compat callback interfaces (signatures checked against
       `open_im_sdk_callback/callback_client.go`)
-- [ ] Wire codegen from openimsdk/protocol `.proto` sources
-- [ ] Frame codec (protobuf + gzip) and request routing
+- [x] Frame codec (gob envelope + gzip) — **verified byte-identical** to
+      Go's `internal/interaction/encoder.go` against golden vectors generated
+      by `tools/gobgolden` (`core/testdata/gob-golden.txt`); gzip interops
+      with Go `compress/gzip`. iOS zlib actual pending CI compilation.
+- [ ] Wire codegen from openimsdk/protocol `.proto` sources + request routing
 - [ ] Message sync engine port (msg_sync.go, message_check.go) — Phase 2
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4

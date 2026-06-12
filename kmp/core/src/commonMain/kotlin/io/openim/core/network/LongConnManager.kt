@@ -64,13 +64,13 @@ data class GeneralWsReq(
     val data: ByteArray,
 )
 
-/** Mirror of Go interaction.GeneralWsResp. */
+/** Mirror of Go interaction.GeneralWsResp (same field order). */
 data class GeneralWsResp(
     val reqIdentifier: Int,
-    val msgIncr: String,
-    val operationID: String,
     val errCode: Int,
     val errMsg: String,
+    val msgIncr: String,
+    val operationID: String,
     val data: ByteArray,
 )
 
