@@ -176,9 +176,17 @@ Phase 0/1 foundation scaffold:
       onSyncServerStart/Finish(reinstalled)). Full lifecycle driven through
       the shim against real SQLite. (Caught and fixed: draft status must
       not be normalized by the received-message conversion)
-- [ ] Remaining: typed Flow-based OpenIMClient facade, production
-      LongConnManager wiring + login/token flow, blacks/user syncs,
-      full-sync paths, MsgStruct content parsing, broader compat surface,
-      CI — Phase 3/4
+- [x] Typed event flows + production composition — **verified**:
+      `EngineEventFlows` bridges engine events into the modern API's
+      SharedFlows (sync flags, new/changed conversations, unread, messages;
+      buffered, drop-oldest); `OpenIMSdk` is the LoginMgr-equivalent
+      composition (per-user Go-compatible DB, ws URL with
+      sendID/token/platformID/sdkVersion + optional compression=gzip,
+      PushMsg envelope → sdkws.PushMessages → MsgSyncer, Connected →
+      catch-up + server-data sync). Flows verified through the engine
+      lifecycle; socket composition compile-verified (live ws needs CI)
+- [ ] Remaining: blacks/user syncs, full-sync paths, MsgStruct content
+      parsing, broader compat surface, live-socket integration + CI —
+      Phase 3/4
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4
