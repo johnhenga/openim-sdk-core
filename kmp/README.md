@@ -92,6 +92,9 @@ Phase 0/1 foundation scaffold:
 - [x] Request routing — ReqIdentifier constants mirrored from
       `pkg/constant`; LongConnManager routes inbound envelopes like Go's
       `handleMessage` (push / kick / logout / pending-response)
+- [x] WsMsgSyncTransport — **verified**: MsgSyncTransport over the gob
+      envelope (protobuf in GeneralWsReq.data, errCode → ServerException),
+      connecting MsgSyncer to LongConnManager; pinned by tests
 - [x] MsgSyncer orchestrator — **verified**: port of `msg_sync.go` over
       injected transport/store/listener interfaces, using the Wire-generated
       protobuf types. Behavior pinned by fake-server tests: on-connect
