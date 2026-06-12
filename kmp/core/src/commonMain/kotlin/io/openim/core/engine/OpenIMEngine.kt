@@ -26,6 +26,10 @@ import io.openim.core.sync.MsgSyncListener
 import io.openim.core.sync.MsgSyncTransport
 import io.openim.core.sync.MsgSyncer
 import io.openim.core.sync.SyncFlag
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.withContext
+import openim.sdkws.MsgData
 import openim.sdkws.PullMsgs
 import openim.sdkws.PushMessages
 
@@ -48,6 +52,7 @@ interface EngineListener : ConversationEventSink {
  * LongConnManager::sendReqWaitResp and calls [onConnected]/[onWakeUp]/
  * [onPushMsg] from the connection events.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class OpenIMEngine(
     private val loginUserID: String,
     platformID: Int,
@@ -59,6 +64,14 @@ class OpenIMEngine(
     selfInfo: suspend () -> SelfInfo,
     clock: () -> Long = ::nowMillis,
 ) {
+
+    /**
+     * All engine state (MsgSyncer seqs, MaxSeqRecorder, conversation
+     * triggers) is confined here — every public entry point hops onto this
+     * serial dispatcher, including sends (Go: the DoListener goroutine plus
+     * per-conversation locks).
+     */
+    private val dispatcher = Dispatchers.Default.limitedParallelism(1)
 
     val chatLogs = ChatLogStore(driver)
     val conversations = SqlConversationStore(driver)
@@ -124,27 +137,37 @@ class OpenIMEngine(
     }
 
     /** Go: LoadSeq at login — prime synced seqs, detect (re)install. */
-    suspend fun login() {
+    suspend fun login() = withContext(dispatcher) {
         msgSyncer.loadSeq()
     }
 
     /** Connection established: catch-up message sync (Go: CmdConnSuccesss). */
-    suspend fun onConnected() = msgSyncer.onConnected()
+    suspend fun onConnected() = withContext(dispatcher) { msgSyncer.onConnected() }
 
     /** App woke up (Go: CmdWakeUpDataSync). */
-    suspend fun onWakeUp() = msgSyncer.onWakeUp()
+    suspend fun onWakeUp() = withContext(dispatcher) { msgSyncer.onWakeUp() }
 
     /** Real-time push from the read pump (Go: CmdPushMsg). */
-    suspend fun onPushMsg(push: PushMessages) = msgSyncer.onPushMsg(push)
+    suspend fun onPushMsg(push: PushMessages) = withContext(dispatcher) { msgSyncer.onPushMsg(push) }
 
     /** Incremental server-data sync (Go: conversation/friend/group syncs). */
-    suspend fun syncServerData() {
+    suspend fun syncServerData() = withContext(dispatcher) {
         conversationSync.incrementalSync()
         friendSync.incrementalSync()
         groupSync.syncJoinedGroupsAndMembers()
     }
 
+    /** Confined send — all senders must go through here, not [sender]. */
+    suspend fun sendMessage(
+        draft: MsgData,
+        recvID: String = "",
+        groupID: String = "",
+        isOnlineOnly: Boolean = false,
+    ) = withContext(dispatcher) {
+        sender.send(draft, recvID = recvID, groupID = groupID, isOnlineOnly = isOnlineOnly)
+    }
+
     /** Convenience send (Go: CreateTextMessage + SendMessage). */
     suspend fun sendTextMessage(text: String, recvID: String = "", groupID: String = "") =
-        sender.send(sender.createTextMessage(text), recvID = recvID, groupID = groupID)
+        sendMessage(sender.createTextMessage(text), recvID = recvID, groupID = groupID)
 }

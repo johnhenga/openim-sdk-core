@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -104,6 +106,10 @@ class LongConnManager(
     val state: StateFlow<ConnectionState> = _state
 
     private val send = Channel<GeneralWsReq>(ConnConstants.SEND_CHANNEL_CAPACITY)
+
+    // Request correlation state is touched by arbitrary sender coroutines
+    // and the read pump concurrently (Go: WsRespAsyn's wsMutex).
+    private val pendingLock = Mutex()
     private val pending = mutableMapOf<String, CompletableDeferred<GeneralWsResp>>()
     private var msgIncr = 0L
 
@@ -116,14 +122,15 @@ class LongConnManager(
 
     /** Go: LongConnMgr.SendReqWaitResp. */
     suspend fun sendReqWaitResp(req: GeneralWsReq): GeneralWsResp {
-        val incr = "${++msgIncr}"
         val deferred = CompletableDeferred<GeneralWsResp>()
-        pending[incr] = deferred
+        val incr = pendingLock.withLock {
+            "${++msgIncr}".also { pending[it] = deferred }
+        }
         try {
             send.send(req.copy(msgIncr = incr))
             return withTimeout(ConnConstants.SEND_AND_WAIT_TIME) { deferred.await() }
         } finally {
-            pending.remove(incr)
+            pendingLock.withLock { pending.remove(incr) }
         }
     }
 
@@ -194,11 +201,12 @@ class LongConnManager(
                 throw ConnectionClosedException("kicked online")
             }
             ReqIdentifier.LOGOUT_MSG -> {
-                pending.remove(resp.msgIncr)?.complete(resp)
+                pendingLock.withLock { pending.remove(resp.msgIncr) }?.complete(resp)
                 session.close()
                 throw ConnectionClosedException("logged out")
             }
-            else -> pending.remove(resp.msgIncr)?.complete(resp) ?: onPushMessage(resp)
+            else -> pendingLock.withLock { pending.remove(resp.msgIncr) }?.complete(resp)
+                ?: onPushMessage(resp)
         }
     }
 

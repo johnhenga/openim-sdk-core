@@ -153,7 +153,7 @@ class OpenIMCompat(
         scope.launch {
             try {
                 val draft = json.decodeFromString(MessageJson.serializer(), message)
-                val sent = engine.sender.send(
+                val sent = engine.sendMessage(
                     draftToMsgData(draft),
                     recvID = recvID,
                     groupID = groupID,
