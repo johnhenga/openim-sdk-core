@@ -16,11 +16,14 @@ import io.openim.core.network.WsMsgSyncTransport
 import io.openim.core.network.WsSendTransport
 import io.openim.core.network.gob.GobFrameCodec
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import openim.sdkws.PushMessages
 
 /** SDK configuration (Go: the InitSDK config JSON). */
@@ -48,6 +51,7 @@ data class SdkConfig(
  * The network paths reuse the verified codec/transport components; this
  * class is composition only.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class OpenIMSdk(
     private val config: SdkConfig,
     private val driverFactory: DriverFactory,
@@ -56,6 +60,21 @@ class OpenIMSdk(
     private val codec: FrameCodec = GobFrameCodec(compression = config.isCompression),
 ) {
     private val scope = CoroutineScope(parentScope.coroutineContext + SupervisorJob())
+
+    /**
+     * All engine entry points run here, serially — the engine's state is
+     * dispatcher-confined (like Go's DoListener goroutine owning MsgSyncer).
+     */
+    private val engineDispatcher =
+        kotlinx.coroutines.Dispatchers.Default.limitedParallelism(1)
+
+    /**
+     * Pushes are queued off the read pump (Go: pushMsgAndMaxSeqCh, cap
+     * 1000). Processing a push can itself issue WS requests (gap pulls);
+     * running it on the read pump would deadlock waiting for the response
+     * the pump can no longer read.
+     */
+    private val pushQueue = Channel<GeneralWsResp>(capacity = 1000)
 
     val events = EngineEventFlows()
 
@@ -106,10 +125,15 @@ class OpenIMSdk(
         )
         engineOrNull = newEngine
 
-        newEngine.login()
+        withContext(engineDispatcher) { newEngine.login() }
 
-        connection.onPushMessage = { resp -> routePush(newEngine, resp) }
-        scope.launch {
+        connection.onPushMessage = { resp -> pushQueue.send(resp) }
+        scope.launch(engineDispatcher) {
+            for (resp in pushQueue) {
+                runCatching { routePush(newEngine, resp) }
+            }
+        }
+        scope.launch(engineDispatcher) {
             connection.state.collect { state ->
                 if (state is ConnectionState.Connected) {
                     newEngine.onConnected()
@@ -132,7 +156,7 @@ class OpenIMSdk(
 
     /** App returned to foreground (Go: CmdWakeUpDataSync). */
     suspend fun wakeUp() {
-        engine.onWakeUp()
+        withContext(engineDispatcher) { engine.onWakeUp() }
     }
 
     fun logout() {

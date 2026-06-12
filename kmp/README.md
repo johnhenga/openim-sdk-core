@@ -185,8 +185,19 @@ Phase 0/1 foundation scaffold:
       PushMsg envelope → sdkws.PushMessages → MsgSyncer, Connected →
       catch-up + server-data sync). Flows verified through the engine
       lifecycle; socket composition compile-verified (live ws needs CI)
+- [x] **Live-socket integration** — the full SDK lifecycle verified over a
+      real websocket speaking the Go wire protocol (in-process server using
+      the golden-verified gob codec as msggateway stand-in): login URL
+      params checked server-side, connect + catch-up history pull, server
+      push decoded and stored, send round-trip acked — 5/5 deterministic
+      runs. The test caught and fixed two architecture bugs in OpenIMSdk:
+      push processing ran on the read pump (deadlock when a gap pull needs
+      the pump to read its response — now queued through a cap-1000
+      channel, Go's pushMsgAndMaxSeqCh pattern) and engine entry points ran
+      on multiple threads (now confined to a single-parallelism dispatcher,
+      Go's DoListener ownership)
 - [ ] Remaining: blacks/user syncs, full-sync paths, MsgStruct content
-      parsing, broader compat surface, live-socket integration + CI —
+      parsing, broader compat surface, CI against a real OpenIM server —
       Phase 3/4
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4
