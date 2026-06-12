@@ -168,15 +168,6 @@ OpenIM is used by the following companies ,let's write it down in [ADOPTER](http
 
 Please leave your use cases in the comments [here](https://github.com/openimsdk/Open-IM-Server/issues/379).
 
-## License
-
-This software is licensed under a dual-license model:
-
-- The GNU Affero General Public License (AGPL), Version 3 or later; **OR**
-- Commercial license terms from OpenIMSDK.
-
-If you wish to use this software under commercial terms, please contact us at: contact@openim.io
-
 For more information, see: https://www.openim.io/en/licensing
 
 
