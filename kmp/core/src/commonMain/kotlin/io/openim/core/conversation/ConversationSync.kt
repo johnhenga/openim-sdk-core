@@ -104,8 +104,16 @@ data class GetFullOwnerConversationIDsResp(
 /** Conversation table operations (over local_conversations). */
 interface ConversationStore {
     suspend fun getAll(): List<LocalConversation>
+
+    /** Sync-side insert/update: server-owned columns only. */
     suspend fun insert(conversation: LocalConversation)
     suspend fun update(conversation: LocalConversation)
+
+    // ---- trigger-side operations (Go: GetMultipleConversationDB,
+    // BatchUpdateConversationList, BatchInsertConversationList) ----
+    suspend fun getByIDs(conversationIDs: List<String>): List<LocalConversation>
+    suspend fun batchUpdateFull(conversations: List<LocalConversation>)
+    suspend fun batchInsertFull(conversations: List<LocalConversation>)
 }
 
 object ConversationApiRoutes {

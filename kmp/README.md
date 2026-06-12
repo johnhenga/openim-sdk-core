@@ -144,7 +144,16 @@ Phase 0/1 foundation scaffold:
       merge carrying settings, session-type conversation seeds);
       `LocalConversation` extended with the local trigger state. Pinned by
       tests
-- [ ] Remaining: blacks/user syncs, full-sync paths, doMsgNew orchestrator
-      assembly, send pipeline, public API assembly — Phase 3
+- [x] Receive-path orchestrator — **verified end-to-end on real SQLite**:
+      `ConversationProcessor` assembles doMsgNew from the verified parts
+      (MessageIngestor → ConversationTrigger → SqlConversationStore →
+      events), honoring the per-message option switches (absent = true).
+      Scenarios pinned: conversation creation with unread + sender
+      enrichment, accumulation, replayed-seq no-regress, own-device
+      messages without unread, placeholder settings carry-over without
+      duplicate rows. (MsgStruct content parsing pending; preview encoder
+      is injectable)
+- [ ] Remaining: blacks/user syncs, full-sync paths, MsgStruct content
+      parsing, send pipeline, public API assembly — Phase 3
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4

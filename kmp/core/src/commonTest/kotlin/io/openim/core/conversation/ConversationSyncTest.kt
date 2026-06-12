@@ -35,6 +35,12 @@ class ConversationSyncTest {
         override suspend fun update(conversation: LocalConversation) {
             rows[conversation.conversationID] = conversation
         }
+        override suspend fun getByIDs(conversationIDs: List<String>) =
+            conversationIDs.mapNotNull { rows[it] }
+        override suspend fun batchUpdateFull(conversations: List<LocalConversation>) =
+            conversations.forEach { rows[it.conversationID] = it }
+        override suspend fun batchInsertFull(conversations: List<LocalConversation>) =
+            conversations.forEach { rows[it.conversationID] = it }
     }
 
     @Test

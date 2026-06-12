@@ -267,26 +267,115 @@ class SqlGroupStore(private val driver: SqlDriver) : GroupStore {
  */
 class SqlConversationStore(private val driver: SqlDriver) : ConversationStore {
 
+    private val columns =
+        "conversation_id, conversation_type, user_id, group_id, recv_msg_opt, group_at_type, is_pinned, burn_duration, is_private_chat, attached_info, ex, msg_destruct_time, is_msg_destruct, show_name, face_url, latest_msg, latest_msg_send_time, unread_count, is_not_in_group"
+
+    private fun SqlCursor.toConversation() = LocalConversation(
+        conversationID = getString(0)!!,
+        conversationType = (getLong(1) ?: 0).toInt(),
+        userID = getString(2) ?: "",
+        groupID = getString(3) ?: "",
+        recvMsgOpt = (getLong(4) ?: 0).toInt(),
+        groupAtType = (getLong(5) ?: 0).toInt(),
+        isPinned = (getLong(6) ?: 0) != 0L,
+        burnDuration = (getLong(7) ?: 0).toInt(),
+        isPrivateChat = (getLong(8) ?: 0) != 0L,
+        attachedInfo = getString(9) ?: "",
+        ex = getString(10) ?: "",
+        msgDestructTime = getLong(11) ?: 0,
+        isMsgDestruct = (getLong(12) ?: 0) != 0L,
+        showName = getString(13) ?: "",
+        faceURL = getString(14) ?: "",
+        latestMsg = getString(15) ?: "",
+        latestMsgSendTime = getLong(16) ?: 0,
+        unreadCount = (getLong(17) ?: 0).toInt(),
+        isNotInGroup = (getLong(18) ?: 0) != 0L,
+    )
+
     override suspend fun getAll(): List<LocalConversation> =
-        driver.rows(
-            "SELECT conversation_id, conversation_type, user_id, group_id, recv_msg_opt, group_at_type, is_pinned, burn_duration, is_private_chat, attached_info, ex, msg_destruct_time, is_msg_destruct FROM `local_conversations`",
-        ) { c ->
-            LocalConversation(
-                conversationID = c.getString(0)!!,
-                conversationType = (c.getLong(1) ?: 0).toInt(),
-                userID = c.getString(2) ?: "",
-                groupID = c.getString(3) ?: "",
-                recvMsgOpt = (c.getLong(4) ?: 0).toInt(),
-                groupAtType = (c.getLong(5) ?: 0).toInt(),
-                isPinned = (c.getLong(6) ?: 0) != 0L,
-                burnDuration = (c.getLong(7) ?: 0).toInt(),
-                isPrivateChat = (c.getLong(8) ?: 0) != 0L,
-                attachedInfo = c.getString(9) ?: "",
-                ex = c.getString(10) ?: "",
-                msgDestructTime = c.getLong(11) ?: 0,
-                isMsgDestruct = (c.getLong(12) ?: 0) != 0L,
-            )
+        driver.rows("SELECT $columns FROM `local_conversations`") { it.toConversation() }
+
+    override suspend fun getByIDs(conversationIDs: List<String>): List<LocalConversation> {
+        if (conversationIDs.isEmpty()) return emptyList()
+        val placeholders = conversationIDs.joinToString(",") { "?" }
+        return driver.rows(
+            "SELECT $columns FROM `local_conversations` WHERE conversation_id IN ($placeholders)",
+            parameters = conversationIDs.size,
+            binders = { conversationIDs.forEachIndexed { i, id -> bindString(i, id) } },
+        ) { it.toConversation() }
+    }
+
+    /** Trigger-side write of the full model row (draft columns untouched). */
+    override suspend fun batchInsertFull(conversations: List<LocalConversation>) {
+        for (c in conversations) {
+            driver.execute(
+                identifier = null,
+                sql = "INSERT OR REPLACE INTO `local_conversations` ($columns) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                parameters = 19,
+            ) { bindFull(c) }
         }
+    }
+
+    override suspend fun batchUpdateFull(conversations: List<LocalConversation>) {
+        for (c in conversations) {
+            driver.execute(
+                identifier = null,
+                sql = """
+                    UPDATE `local_conversations` SET
+                        conversation_type = ?, user_id = ?, group_id = ?,
+                        recv_msg_opt = ?, group_at_type = ?, is_pinned = ?,
+                        burn_duration = ?, is_private_chat = ?, attached_info = ?,
+                        ex = ?, msg_destruct_time = ?, is_msg_destruct = ?,
+                        show_name = ?, face_url = ?, latest_msg = ?,
+                        latest_msg_send_time = ?, unread_count = ?, is_not_in_group = ?
+                    WHERE conversation_id = ?
+                """.trimIndent(),
+                parameters = 19,
+            ) {
+                bindLong(0, c.conversationType.toLong())
+                bindString(1, c.userID)
+                bindString(2, c.groupID)
+                bindLong(3, c.recvMsgOpt.toLong())
+                bindLong(4, c.groupAtType.toLong())
+                bindLong(5, if (c.isPinned) 1 else 0)
+                bindLong(6, c.burnDuration.toLong())
+                bindLong(7, if (c.isPrivateChat) 1 else 0)
+                bindString(8, c.attachedInfo)
+                bindString(9, c.ex)
+                bindLong(10, c.msgDestructTime)
+                bindLong(11, if (c.isMsgDestruct) 1 else 0)
+                bindString(12, c.showName)
+                bindString(13, c.faceURL)
+                bindString(14, c.latestMsg)
+                bindLong(15, c.latestMsgSendTime)
+                bindLong(16, c.unreadCount.toLong())
+                bindLong(17, if (c.isNotInGroup) 1 else 0)
+                bindString(18, c.conversationID)
+            }
+        }
+    }
+
+    private fun SqlPreparedStatement.bindFull(c: LocalConversation) {
+        bindString(0, c.conversationID)
+        bindLong(1, c.conversationType.toLong())
+        bindString(2, c.userID)
+        bindString(3, c.groupID)
+        bindLong(4, c.recvMsgOpt.toLong())
+        bindLong(5, c.groupAtType.toLong())
+        bindLong(6, if (c.isPinned) 1 else 0)
+        bindLong(7, c.burnDuration.toLong())
+        bindLong(8, if (c.isPrivateChat) 1 else 0)
+        bindString(9, c.attachedInfo)
+        bindString(10, c.ex)
+        bindLong(11, c.msgDestructTime)
+        bindLong(12, if (c.isMsgDestruct) 1 else 0)
+        bindString(13, c.showName)
+        bindString(14, c.faceURL)
+        bindString(15, c.latestMsg)
+        bindLong(16, c.latestMsgSendTime)
+        bindLong(17, c.unreadCount.toLong())
+        bindLong(18, if (c.isNotInGroup) 1 else 0)
+    }
 
     override suspend fun insert(conversation: LocalConversation) {
         driver.execute(
