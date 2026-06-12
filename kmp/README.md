@@ -133,6 +133,11 @@ Phase 0/1 foundation scaffold:
       `IncrSyncConversations` incl. the skipDeletion semantics (sync never
       deletes conversation rows; server delete keys only trim the version
       id_list). Pinned by mock-server tests
+- [x] SQLite-backed stores — **verified end-to-end**: SqlVersionSyncStore
+      (GORM-compatible JSON id_list), SqlFriendStore, SqlGroupStore,
+      SqlConversationStore (sync updates touch only server-owned columns;
+      unread/draft state preserved). Friend+group+conversation syncs run
+      mock HTTP → stores → real SQLite with conversions and cursors checked
 - [ ] Remaining domain modules (blacks, user — same template), full-sync
       paths, conversation triggers (unread/latest-msg), send pipeline —
       Phase 3
