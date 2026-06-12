@@ -49,6 +49,9 @@ class VersionSynchronizer<V : Any>(
     private val fullSyncer: suspend () -> Unit,
     private val fullIDs: suspend () -> List<String>,
     private val notice: suspend (state: SyncState, server: V?, local: V?) -> Unit = { _, _, _ -> },
+    /** Go: ExtraDataProcessor — handles [Response.extraData] after the sync
+     * (e.g. the group info piggybacked on a group-member response). */
+    private val extraDataProcessor: (suspend (Any) -> Unit)? = null,
 ) {
 
     /** Server reply to an incremental request (Go: the resp accessors). */
@@ -61,6 +64,8 @@ class VersionSynchronizer<V : Any>(
         val inserts: List<V> = emptyList(),
         /** Go: IDOrderChanged — e.g. friend reorder or role-level change. */
         val idOrderChanged: Boolean = false,
+        /** Go: ExtraData — side payload riding on the response. */
+        val extraData: Any? = null,
     )
 
     suspend fun incrementalSync() {
@@ -68,7 +73,7 @@ class VersionSynchronizer<V : Any>(
         val resp = server(stored)
 
         val changes = resp.updates + resp.inserts
-        if (resp.deleteKeys.isEmpty() && changes.isEmpty() && !resp.full) {
+        if (resp.deleteKeys.isEmpty() && changes.isEmpty() && !resp.full && resp.extraData == null) {
             return // Go parity: version row left untouched
         }
 
@@ -91,6 +96,10 @@ class VersionSynchronizer<V : Any>(
             for (id in resp.deleteKeys) expected.remove(id)
 
             syncer.sync(expected.values.toList(), localData, notice = notice)
+
+            if (resp.extraData != null) {
+                extraDataProcessor?.invoke(resp.extraData)
+            }
 
             if (resp.idOrderChanged) {
                 idList = fullIDs()

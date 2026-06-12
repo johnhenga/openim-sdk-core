@@ -123,8 +123,14 @@ Phase 0/1 foundation scaffold:
       `/friend/get_incremental_friends` exactly like
       `internal/relation/incremental_sync.go` (incl. sortVersion → full-ID
       refresh). Pinned by mock-server tests
-- [ ] Remaining domain modules (blacks, groups, group members,
-      conversations — same FriendSync template), full-sync paths,
-      conversation triggers, send pipeline — Phase 3
+- [x] Group module — **verified**: `GroupSync` ports
+      `internal/group/incremental_sync.go` (joined-group sync, batched
+      member sync over `get_incremental_group_members_batch` with the
+      500-cursor MaxSyncPullNumber split, piggybacked group info applied
+      via the synchronizer's extraData hook, per-group version cursors
+      under `local_group_entities_version`). Pinned by mock-server tests
+- [ ] Remaining domain modules (blacks, conversations, user — same
+      template), full-sync paths, conversation triggers, send pipeline —
+      Phase 3
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4
