@@ -83,7 +83,13 @@ Phase 0/1 foundation scaffold:
       seq-range arithmetic of `msg_sync.go` (need-sync computation incl. the
       reinstall/notification special case, gap enumeration, pull batching)
       and `MaxSeqRecorder`; behavior pinned by tests
-- [ ] Wire codegen from openimsdk/protocol `.proto` sources + request routing
+- [x] Protocol layer — protos vendored from openimsdk/protocol at the
+      Go-pinned tag (v0.0.73-alpha.12, `kmp/protocol/`), Wire plugin wired
+      into the build. **Verified**: Wire 5.1.0 generates 504 Kotlin classes
+      from the vendored set, all compile, and generated code decodes
+      Go-protobuf-marshaled `sdkws` bytes and re-encodes them
+      byte-identically (`tools/protocheck`)
+- [ ] Request routing (ReqIdentifier dispatch over the gob envelope)
 - [ ] MsgSyncer orchestrator + message_check.go gap validation — Phase 2
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4

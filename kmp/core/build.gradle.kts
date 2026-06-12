@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.android.library)
     alias(libs.plugins.sqldelight)
+    alias(libs.plugins.wire)
 }
 
 kotlin {
@@ -23,6 +24,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            api(libs.wire.runtime)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.ktor.client.core)
@@ -51,6 +53,18 @@ android {
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
+    }
+}
+
+wire {
+    // Protos vendored from openimsdk/protocol at the version pinned by the
+    // Go SDK (see ../protocol/README.md). Messages only — the SDK talks to
+    // existing endpoints, so no RPC stubs are generated.
+    sourcePath {
+        srcDir(rootProject.file("protocol"))
+    }
+    kotlin {
+        // Generate into commonMain for all targets.
     }
 }
 
