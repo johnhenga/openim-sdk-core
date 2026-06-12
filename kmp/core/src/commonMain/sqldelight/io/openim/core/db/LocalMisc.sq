@@ -1,0 +1,77 @@
+-- Typing-only mirrors of the remaining static tables
+-- (docs/schema/go-sdk-schema.sql). Queries are added as the owning modules
+-- are ported (Phase 3).
+
+CREATE TABLE local_app_sdk_version (
+    version TEXT NOT NULL PRIMARY KEY,
+    installed INTEGER AS kotlin.Boolean
+);
+
+CREATE TABLE local_notification_seqs (
+    conversation_id TEXT NOT NULL PRIMARY KEY,
+    seq INTEGER
+);
+
+CREATE TABLE local_sending_messages (
+    conversation_id TEXT NOT NULL,
+    client_msg_id TEXT NOT NULL,
+    ex TEXT,
+    PRIMARY KEY (conversation_id, client_msg_id)
+);
+
+CREATE TABLE local_uploads (
+    part_hash TEXT NOT NULL PRIMARY KEY,
+    upload_id TEXT,
+    upload_info TEXT,
+    expire_time INTEGER,
+    create_time INTEGER
+);
+
+CREATE TABLE local_chat_log_reaction_extensions (
+    client_msg_id TEXT NOT NULL PRIMARY KEY,
+    local_reaction_extensions BLOB
+);
+
+-- `local_chat_logs` is created by GORM AutoMigrate but message storage at
+-- runtime uses per-conversation tables `chat_logs_<conversationID>` with the
+-- same columns plus local_ex/is_react/is_external_extensions/
+-- msg_first_modify_time. Those dynamic tables cannot be expressed in
+-- SQLDelight and are handled by db/ChatLogStore.kt with raw queries.
+CREATE TABLE local_chat_logs (
+    client_msg_id TEXT NOT NULL PRIMARY KEY,
+    server_msg_id TEXT,
+    send_id TEXT,
+    recv_id TEXT,
+    sender_platform_id INTEGER,
+    sender_nick_name TEXT,
+    sender_face_url TEXT,
+    session_type INTEGER,
+    msg_from INTEGER,
+    content_type INTEGER,
+    content TEXT,
+    is_read INTEGER AS kotlin.Boolean,
+    status INTEGER,
+    seq INTEGER DEFAULT 0,
+    send_time INTEGER,
+    create_time INTEGER,
+    attached_info TEXT,
+    ex TEXT,
+    local_ex TEXT
+);
+
+CREATE INDEX content_type_alone ON local_chat_logs(content_type);
+CREATE INDEX index_recv_id ON local_chat_logs(recv_id);
+CREATE INDEX index_send_time ON local_chat_logs(send_time);
+CREATE INDEX index_seq ON local_chat_logs(seq);
+
+getAppSDKVersion:
+SELECT * FROM local_app_sdk_version LIMIT 1;
+
+setAppSDKVersion:
+INSERT OR REPLACE INTO local_app_sdk_version VALUES ?;
+
+getNotificationSeq:
+SELECT * FROM local_notification_seqs WHERE conversation_id = ?;
+
+setNotificationSeq:
+INSERT OR REPLACE INTO local_notification_seqs VALUES ?;

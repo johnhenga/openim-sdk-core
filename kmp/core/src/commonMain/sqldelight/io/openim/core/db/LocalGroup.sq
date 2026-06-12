@@ -1,0 +1,33 @@
+-- Typing-only mirror of `local_groups` (docs/schema/go-sdk-schema.sql).
+CREATE TABLE local_groups (
+    group_id TEXT NOT NULL PRIMARY KEY,
+    name TEXT,
+    notification TEXT,
+    introduction TEXT,
+    face_url TEXT,
+    create_time INTEGER,
+    status INTEGER,
+    creator_user_id TEXT,
+    group_type INTEGER,
+    owner_user_id TEXT,
+    member_count INTEGER,
+    ex TEXT,
+    attached_info TEXT,
+    need_verification INTEGER,
+    look_member_info INTEGER,
+    apply_member_friend INTEGER,
+    notification_update_time INTEGER,
+    notification_user_id TEXT
+);
+
+getAll:
+SELECT * FROM local_groups;
+
+getByID:
+SELECT * FROM local_groups WHERE group_id = ?;
+
+upsert:
+INSERT OR REPLACE INTO local_groups VALUES ?;
+
+deleteByID:
+DELETE FROM local_groups WHERE group_id = ?;

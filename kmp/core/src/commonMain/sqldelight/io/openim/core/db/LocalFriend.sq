@@ -1,0 +1,27 @@
+-- Typing-only mirror of `local_friends` (docs/schema/go-sdk-schema.sql).
+CREATE TABLE local_friends (
+    owner_user_id TEXT NOT NULL,
+    friend_user_id TEXT NOT NULL,
+    remark TEXT,
+    create_time INTEGER,
+    add_source INTEGER,
+    operator_user_id TEXT,
+    name TEXT,
+    face_url TEXT,
+    ex TEXT,
+    attached_info TEXT,
+    is_pinned INTEGER AS kotlin.Boolean,
+    PRIMARY KEY (owner_user_id, friend_user_id)
+);
+
+getAll:
+SELECT * FROM local_friends WHERE owner_user_id = ?;
+
+getByUserID:
+SELECT * FROM local_friends WHERE owner_user_id = ? AND friend_user_id = ?;
+
+upsert:
+INSERT OR REPLACE INTO local_friends VALUES ?;
+
+deleteByUserID:
+DELETE FROM local_friends WHERE owner_user_id = ? AND friend_user_id = ?;

@@ -1,0 +1,17 @@
+-- Typing-only mirror of `local_stranger` (docs/schema/go-sdk-schema.sql).
+CREATE TABLE local_stranger (
+    user_id TEXT NOT NULL PRIMARY KEY,
+    name TEXT,
+    face_url TEXT,
+    create_time INTEGER,
+    app_manger_level INTEGER,
+    ex TEXT,
+    attached_info TEXT,
+    global_recv_msg_opt INTEGER
+);
+
+getByIDs:
+SELECT * FROM local_stranger WHERE user_id IN ?;
+
+upsert:
+INSERT OR REPLACE INTO local_stranger VALUES ?;

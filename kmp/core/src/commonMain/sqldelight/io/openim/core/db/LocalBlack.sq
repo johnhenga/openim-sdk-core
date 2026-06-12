@@ -1,0 +1,22 @@
+-- Typing-only mirror of `local_blacks` (docs/schema/go-sdk-schema.sql).
+CREATE TABLE local_blacks (
+    owner_user_id TEXT NOT NULL,
+    block_user_id TEXT NOT NULL,
+    nickname TEXT,
+    face_url TEXT,
+    create_time INTEGER,
+    add_source INTEGER,
+    operator_user_id TEXT,
+    ex TEXT,
+    attached_info TEXT,
+    PRIMARY KEY (owner_user_id, block_user_id)
+);
+
+getAll:
+SELECT * FROM local_blacks WHERE owner_user_id = ?;
+
+upsert:
+INSERT OR REPLACE INTO local_blacks VALUES ?;
+
+deleteByUserID:
+DELETE FROM local_blacks WHERE owner_user_id = ? AND block_user_id = ?;

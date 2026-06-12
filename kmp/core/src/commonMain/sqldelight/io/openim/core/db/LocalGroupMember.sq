@@ -1,0 +1,34 @@
+-- Typing-only mirror of `local_group_members` (docs/schema/go-sdk-schema.sql).
+CREATE TABLE local_group_members (
+    group_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    nickname TEXT,
+    user_group_face_url TEXT,
+    role_level INTEGER,
+    join_time INTEGER,
+    join_source INTEGER,
+    inviter_user_id TEXT,
+    mute_end_time INTEGER DEFAULT 0,
+    operator_user_id TEXT,
+    ex TEXT,
+    attached_info TEXT,
+    PRIMARY KEY (group_id, user_id)
+);
+
+CREATE INDEX index_join_time ON local_group_members(join_time);
+CREATE INDEX index_role_level ON local_group_members(role_level);
+
+getByGroup:
+SELECT * FROM local_group_members WHERE group_id = ? ORDER BY join_time LIMIT :limit OFFSET :offset;
+
+getMember:
+SELECT * FROM local_group_members WHERE group_id = ? AND user_id = ?;
+
+upsert:
+INSERT OR REPLACE INTO local_group_members VALUES ?;
+
+deleteMember:
+DELETE FROM local_group_members WHERE group_id = ? AND user_id = ?;
+
+deleteByGroup:
+DELETE FROM local_group_members WHERE group_id = ?;

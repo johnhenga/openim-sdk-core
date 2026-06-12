@@ -1,0 +1,17 @@
+-- Typing-only mirror of `local_users` (docs/schema/go-sdk-schema.sql).
+CREATE TABLE local_users (
+    user_id TEXT NOT NULL PRIMARY KEY,
+    name TEXT,
+    face_url TEXT,
+    create_time INTEGER,
+    app_manger_level INTEGER,
+    ex TEXT,
+    attached_info TEXT,
+    global_recv_msg_opt INTEGER
+);
+
+get:
+SELECT * FROM local_users LIMIT 1;
+
+upsert:
+INSERT OR REPLACE INTO local_users VALUES ?;

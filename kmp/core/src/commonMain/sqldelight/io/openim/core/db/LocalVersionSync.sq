@@ -1,0 +1,21 @@
+-- Typing-only mirror of `local_sync_version` (docs/schema/go-sdk-schema.sql).
+-- Backs the incremental version synchronizer (see sync/VersionSynchronizer.kt
+-- and Go pkg/syncer/version_synchronizer.go).
+CREATE TABLE local_sync_version (
+    table_name TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    version_id TEXT,
+    version INTEGER,
+    create_time INTEGER,
+    id_list TEXT,
+    PRIMARY KEY (table_name, entity_id)
+);
+
+get:
+SELECT * FROM local_sync_version WHERE table_name = ? AND entity_id = ?;
+
+upsert:
+INSERT OR REPLACE INTO local_sync_version VALUES ?;
+
+deleteByKey:
+DELETE FROM local_sync_version WHERE table_name = ? AND entity_id = ?;

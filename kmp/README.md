@@ -1,0 +1,82 @@
+# OpenIM SDK — Kotlin Multiplatform core
+
+Kotlin Multiplatform (KMP) port of the Go SDK core, targeting **Android and
+iOS only**. Strategy, phasing, and rationale live in
+[`docs/kotlin-multiplatform-migration.md`](../docs/kotlin-multiplatform-migration.md).
+
+## Layout
+
+```
+kmp/
+  core/
+    src/commonMain/kotlin/io/openim/core/
+      api/        Typed API surface (OpenIMClient) + gomobile-compatible
+                  callback shim (api/compat) mirroring open_im_sdk_callback/
+      db/         GoSdkSchema (verbatim Go SDK DDL), ChatLogStore (dynamic
+                  per-conversation chat_logs_* tables), driver factories
+      network/    LongConnManager — coroutine port of
+                  internal/interaction/long_conn_mgr.go
+      sync/       Syncer + VersionSynchronizer — ports of pkg/syncer
+    src/commonMain/sqldelight/   Typing-only .sq mirrors of the static tables
+    src/androidMain, src/iosMain Platform drivers and actuals
+    src/commonTest               Pure-logic tests (Syncer semantics, …)
+```
+
+## Database compatibility (the load-bearing invariant)
+
+Databases must remain interchangeable with the Go SDK so upgraded apps keep
+local chat history:
+
+- File name: `OpenIM_v3_<loginUserID>.db` (same as `pkg/db/db_init.go`).
+- Static schema: created from the **verbatim** GORM DDL embedded in
+  `GoSdkSchema.kt`. The SQLDelight `.sq` files are typing-only mirrors and are
+  **not** used to create the schema.
+- Ground truth: `docs/schema/go-sdk-schema.sql`, regenerated from the Go
+  models with `go run ./tools/schemagen docs/schema/go-sdk-schema.sql`
+  (run from the repo root). If the Go models change, regenerate and update
+  `GoSdkSchema.kt` + the `.sq` mirrors together.
+- Messages live in dynamic per-conversation tables
+  (`chat_logs_<conversationID>`), handled by `ChatLogStore` with DDL
+  byte-identical to `pkg/db/chat_log_model.go initChatLog`.
+
+## Building
+
+Requires JDK 17+, Android SDK (for the Android target), and Xcode (for the
+iOS targets, macOS host only).
+
+```bash
+cd kmp
+gradle :core:allTests          # common logic tests
+gradle :core:assembleRelease   # Android AAR
+gradle :core:linkReleaseFrameworkIosArm64   # iOS framework
+```
+
+Dependency versions in `gradle/libs.versions.toml` are pinned at scaffold
+time; verifying/bumping them is part of the Phase 0 CI setup. Note: the
+Android Gradle Plugin resolves from Google Maven (`dl.google.com`) — build
+environments must allow that host in addition to Maven Central.
+
+## Status
+
+Phase 0/1 foundation scaffold:
+
+- [x] Migration design doc + ground-truth schema extraction
+- [x] Project scaffold (Gradle, targets, SQLDelight, Ktor, coroutines)
+- [x] Schema bootstrap byte-compatible with the Go SDK — **verified**: a
+      database created by `GoSdkSchema` produces `sqlite_master` DDL
+      byte-identical to `docs/schema/go-sdk-schema.sql` (all 21 objects)
+- [x] Dynamic chat-log store (raw-query path) — **verified** against a real
+      SQLite database (insert / getBySeqs / maxSeq / paging / lazy table +
+      index creation)
+- [x] Syncer port with tests — **verified**: insert/update/delete/unchanged,
+      skipDeletion, skipNotice semantics match `pkg/syncer/syncer.go`
+- [x] VersionSynchronizer skeleton
+- [x] LongConnManager coroutine prototype (Go constants mirrored);
+      common sources compile-verified with kotlinc 2.1.21
+- [x] Typed API + compat callback interfaces (signatures checked against
+      `open_im_sdk_callback/callback_client.go`)
+- [ ] Wire codegen from openimsdk/protocol `.proto` sources
+- [ ] Frame codec (protobuf + gzip) and request routing
+- [ ] Message sync engine port (msg_sync.go, message_check.go) — Phase 2
+- [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
+- [ ] Golden replay + parity harness — Phases 0/4
