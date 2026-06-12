@@ -70,7 +70,11 @@ Phase 0/1 foundation scaffold:
       index creation)
 - [x] Syncer port with tests — **verified**: insert/update/delete/unchanged,
       skipDeletion, skipNotice semantics match `pkg/syncer/syncer.go`
-- [x] VersionSynchronizer skeleton
+- [x] VersionSynchronizer — **verified**: faithful port of
+      `version_synchronizer.go` IncrementalSync (server-driven full flag,
+      id_list maintenance, local ⊕ changes ⊖ deletions reconciliation
+      through Syncer, idOrderChanged refresh, version row untouched when
+      nothing changed); pinned by tests instantiated for friends
 - [x] LongConnManager coroutine prototype (Go constants mirrored);
       common sources compile-verified with kotlinc 2.1.21
 - [x] Typed API + compat callback interfaces (signatures checked against
