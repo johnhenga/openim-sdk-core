@@ -99,6 +99,11 @@ Phase 0/1 foundation scaffold:
       push handling (contiguous trigger / gap pull / seq-0 online-only),
       reinstall (notification seq recording + markInstalled), 5s sync
       debounce, and SplitPullMsgNum pull batching
-- [ ] message_check.go gap validation + conversation module — Phase 2/3
+- [x] History gap-check helpers — **verified**: `MessageGapCheck` ports the
+      pure functions of `message_check.go` (have-seq scan ignoring seq-0,
+      lost-seq computation capped at PullMsgNumForReadDiffusion=50 with
+      direction-aware trimming, sendTime+seq ordered merge); pinned by tests
+- [ ] Conversation module (message storage pipeline, view-block validation,
+      exception-message placeholders) — Phase 3
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4
