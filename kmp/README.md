@@ -79,7 +79,11 @@ Phase 0/1 foundation scaffold:
       Go's `internal/interaction/encoder.go` against golden vectors generated
       by `tools/gobgolden` (`core/testdata/gob-golden.txt`); gzip interops
       with Go `compress/gzip`. iOS zlib actual pending CI compilation.
+- [x] Message sync foundation — **verified**: `MsgSyncCalculator` ports the
+      seq-range arithmetic of `msg_sync.go` (need-sync computation incl. the
+      reinstall/notification special case, gap enumeration, pull batching)
+      and `MaxSeqRecorder`; behavior pinned by tests
 - [ ] Wire codegen from openimsdk/protocol `.proto` sources + request routing
-- [ ] Message sync engine port (msg_sync.go, message_check.go) — Phase 2
+- [ ] MsgSyncer orchestrator + message_check.go gap validation — Phase 2
 - [ ] Domain modules (user → relation → group → conversation → third) — Phase 3
 - [ ] Golden replay + parity harness — Phases 0/4
