@@ -1,8 +1,89 @@
 # OpenIM SDK — Kotlin Multiplatform core
 
-Kotlin Multiplatform (KMP) port of the Go SDK core, targeting **Android and
-iOS only**. Strategy, phasing, and rationale live in
+Kotlin Multiplatform (KMP) port of the Go SDK core. Strategy, phasing, and
+rationale live in
 [`docs/kotlin-multiplatform-migration.md`](../docs/kotlin-multiplatform-migration.md).
+
+## Supported platforms
+
+**Android and iOS only.** One shared Kotlin codebase compiles to an Android
+library (AAR) and an iOS framework. Web/WASM and desktop are explicitly out
+of scope — they continue to use the original Go core. (A `jvm()` target also
+exists, but only so the test suites can run in CI without emulators; it is
+not a supported app platform.)
+
+## How this SDK works (in simple terms)
+
+This is the engine inside a chat app. The app's UI talks to the SDK; the SDK
+talks to the OpenIM server and to a local database on the phone. The design
+is **local-first**: the UI always reads from the local SQLite database, and
+the SDK's whole job is to keep that database in sync with the server.
+
+```
+                ┌──────────────────────  your app (UI)  ─────────────────────┐
+                │   calls (login, send message, list conversations)          │
+                │   events (new message, conversation changed, unread count) │
+                └──────────────────────────┬──────────────────────────────────┘
+                                           │
+   ┌───────────────────────────────  SDK core  ───────────────────────────────┐
+   │  OpenIMSdk / OpenIMEngine  — wires everything together                   │
+   │                                                                          │
+   │  LongConnManager      one persistent websocket to the server             │
+   │   └─ GobFrameCodec    encodes/decodes the wire format (gob + protobuf)   │
+   │  MsgSyncer            decides WHICH messages are missing (seq numbers)   │
+   │  MessageIngestor      stores pulled/pushed messages, handles duplicates  │
+   │  ConversationTrigger  updates unread counts & conversation previews      │
+   │  MessageSender        the outgoing path (send → ack → status update)     │
+   │  Friend/Group/Conversation syncs   incremental contact-list sync (HTTP)  │
+   └──────────────┬──────────────────────────────────────┬────────────────────┘
+                  │ websocket (messages, real-time)       │ HTTPS (contacts,
+                  ▼                                       ▼  groups, settings)
+            OpenIM server                            OpenIM server API
+                  ▲
+                  │ everything lands in
+                  ▼
+        local SQLite database  (same file format as the Go SDK —
+        an app upgrading from the Go core keeps all its chat history)
+```
+
+The key ideas, one at a time:
+
+1. **Every message has a sequence number (seq).** The server numbers each
+   conversation's messages 1, 2, 3… The SDK remembers the highest seq it has
+   stored per conversation. Syncing is then simple arithmetic: if the server
+   says the conversation is at seq 50 and we have 42, pull 43–50. If a
+   pushed message arrives with seq 45 while we're at 42, that's a *gap* —
+   pull 43–45 before showing anything, so messages never appear out of
+   order or go missing.
+
+2. **One long-lived websocket** carries real-time traffic. Requests
+   (e.g. "pull messages 43–50") and the server's pushes both travel as small
+   binary envelopes; the payload inside is protobuf. The connection
+   heartbeats (ping/pong) and reconnects with backoff when it drops; every
+   reconnect triggers a quick "what's the latest seq?" catch-up.
+
+3. **Contacts sync incrementally over HTTPS.** Friends, groups, group
+   members, and conversation settings each carry a server-side *version*.
+   The SDK sends "I'm at version N" and gets back just the inserts/updates/
+   deletes since then — or a "too far behind, resync everything" flag.
+
+4. **The database is the source of truth for the UI.** Incoming messages are
+   written to SQLite first (deduplicated, with placeholders for deleted
+   messages), then conversation rows are updated (latest-message preview,
+   unread count), and only then does the app get an event saying "this
+   conversation changed". Killing the app loses nothing.
+
+5. **Sending is optimistic.** An outgoing message is stored locally as
+   *Sending* and recorded in a pending table before it goes on the wire; the
+   server's ack upgrades it to *Sent* (with the server's timestamp and ID),
+   and a failure marks it *Failed* so the UI can offer retry. If the network
+   times out, the SDK checks whether the ack arrived by another route before
+   declaring failure — so flaky networks don't cause duplicate sends.
+
+6. **Wire- and disk-compatible with the Go SDK.** The websocket frames, the
+   HTTP JSON, and the SQLite schema are byte-identical to what the original
+   Go core produces (enforced by golden tests in CI), so this core can talk
+   to existing OpenIM servers and open databases written by the Go SDK.
 
 ## Layout
 
